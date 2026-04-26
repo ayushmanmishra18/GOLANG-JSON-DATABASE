@@ -62,4 +62,32 @@ func main() {
 	}
 
 	fmt.Println("Parsed Users:", allUsers)
+
+// Read single record
+	data, err := db.Read("users", "Ayushman")
+if err != nil {
+	fmt.Println("Read error:", err)
+} else {
+	fmt.Println("Single Record:", data)
+}
+
+
+//update record
+updatedUser := User{
+	Name:    "Ayushman",
+	Age:     json.Number("35"), // updated age
+	Contact: "ayushman_new@example.com",
+	Company: "ABC Corp",
+	Address: "Delhi",
+}
+
+db.Update("users", "Ayushman", updatedUser)
+
+//delete record
+err = db.Delete("users", "Rohit")
+if err != nil {
+	fmt.Println("Delete error:", err)
+} else {
+	fmt.Println("Rohit deleted")
+}
 }
