@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -13,18 +14,32 @@ type DB struct {
 	mu  sync.RWMutex
 }
 
+type User struct {
+	Name    string
+	Age     json.Number
+	Contact string
+	Company string
+	Address string
+}
+
+// Create DB
 func New(dir string, options interface{}) (*DB, error) {
-	// create directory if not exists
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, err
 	}
 	return &DB{dir: dir}, nil
 }
 
-// Write data
+// Write
 func (db *DB) Write(collection, key string, value interface{}) error {
-	db.mu.Lock()         // 🔒 lock
-	defer db.mu.Unlock() // 🔓 unlock
+	if key == "" {
+		return fmt.Errorf("key cannot be empty")
+	}
+
+	key = strings.ReplaceAll(key, "/", "_")
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
 
 	filePath := filepath.Join(db.dir, collection+"_"+key+".json")
 
@@ -36,7 +51,7 @@ func (db *DB) Write(collection, key string, value interface{}) error {
 	return os.WriteFile(filePath, data, 0644)
 }
 
-// Read all records
+// Read all
 func (db *DB) Readall(collection string) ([]string, error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
@@ -51,7 +66,6 @@ func (db *DB) Readall(collection string) ([]string, error) {
 	for _, file := range files {
 		data, err := os.ReadFile(file)
 		if err != nil {
-			fmt.Println("Read error:", err)
 			continue
 		}
 		records = append(records, string(data))
@@ -60,9 +74,9 @@ func (db *DB) Readall(collection string) ([]string, error) {
 	return records, nil
 }
 
-// Read single record
+// Read one
 func (db *DB) Read(collection, key string) (string, error) {
-	db.mu.RLock()         // read lock
+	db.mu.RLock()
 	defer db.mu.RUnlock()
 
 	filePath := filepath.Join(db.dir, collection+"_"+key+".json")
@@ -75,16 +89,21 @@ func (db *DB) Read(collection, key string) (string, error) {
 	return string(data), nil
 }
 
-// Update record (same as write, overwrite)
+// Update
 func (db *DB) Update(collection, key string, value interface{}) error {
 	return db.Write(collection, key, value)
 }
 
-// Delete record
+// Delete
 func (db *DB) Delete(collection, key string) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	filePath := filepath.Join(db.dir, collection+"_"+key+".json")
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return fmt.Errorf("record not found")
+	}
+
 	return os.Remove(filePath)
 }
