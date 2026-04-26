@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 )
 
 type User struct {
@@ -23,71 +24,60 @@ func main() {
 	}
 
 	employee := []User{
-		{
-			Name:    "Ayushman",
-			Age:     json.Number("30"),
-			Contact: "ayushman@example.com",
-			Company: "ABC Corp",
-			Address: "Delhi",
-		},
-		{
-			Name:    "Rohit",
-			Age:     json.Number("25"),
-			Contact: "rohit@example.com",
-			Company: "XYZ Corp",
-			Address: "Gurgaon",
-		},
+		{"Ayushman", json.Number("30"), "ayushman@example.com", "ABC Corp", "Delhi"},
+		{"Rohit", json.Number("25"), "rohit@example.com", "XYZ Corp", "Gurgaon"},
 	}
 
+	// Write
 	for _, val := range employee {
 		if err := db.Write("users", val.Name, val); err != nil {
 			fmt.Println("Write error:", err)
 		}
 	}
 
-	records, err := db.Readall("users")
-	if err != nil {
-		fmt.Println("Error reading from database:", err)
-		return
+	// Update
+	updatedUser := User{
+		"Ayushman", json.Number("35"),
+		"ayushman_new@example.com", "ABC Corp", "Delhi",
 	}
 
-	allUsers := []User{}
-	for _, f := range records {
-		employeefound := User{}
-		if err := json.Unmarshal([]byte(f), &employeefound); err != nil {
-			fmt.Println("Error unmarshalling:", err)
-			continue
-		}
-		allUsers = append(allUsers, employeefound)
+	if err := db.Update("users", "Ayushman", updatedUser); err != nil {
+		fmt.Println("Update error:", err)
 	}
 
-	fmt.Println("Parsed Users:", allUsers)
+	// Delete
+	if err := db.Delete("users", "Rohit"); err != nil {
+		fmt.Println("Delete error:", err)
+	} else {
+		fmt.Println("Rohit deleted")
+	}
 
-// Read single record
-	data, err := db.Read("users", "Ayushman")
-if err != nil {
-	fmt.Println("Read error:", err)
-} else {
-	fmt.Println("Single Record:", data)
-}
+	// Concurrent writes
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
 
+		go func(i int) {
+			defer wg.Done()
 
-//update record
-updatedUser := User{
-	Name:    "Ayushman",
-	Age:     json.Number("35"), // updated age
-	Contact: "ayushman_new@example.com",
-	Company: "ABC Corp",
-	Address: "Delhi",
-}
+			user := User{
+				Name:    fmt.Sprintf("User%d", i),
+				Age:     json.Number("20"),
+				Contact: "test@example.com",
+				Company: "TestCorp",
+				Address: "City",
+			}
 
-db.Update("users", "Ayushman", updatedUser)
+			if err := db.Write("users", user.Name, user); err != nil {
+				fmt.Println("Concurrent write error:", err)
+			}
+		}(i)
+	}
+	wg.Wait()
 
-//delete record
-err = db.Delete("users", "Rohit")
-if err != nil {
-	fmt.Println("Delete error:", err)
-} else {
-	fmt.Println("Rohit deleted")
-}
+	fmt.Println("All concurrent writes done")
+
+	// Final read
+	records, _ := db.Readall("users")
+	fmt.Println("Final Records:", records)
 }

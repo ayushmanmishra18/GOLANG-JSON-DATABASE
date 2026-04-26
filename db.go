@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 type DB struct {
 	dir string
+	mu  sync.RWMutex
 }
 
 func New(dir string, options interface{}) (*DB, error) {
@@ -21,6 +23,9 @@ func New(dir string, options interface{}) (*DB, error) {
 
 // Write data
 func (db *DB) Write(collection, key string, value interface{}) error {
+	db.mu.Lock()         // 🔒 lock
+	defer db.mu.Unlock() // 🔓 unlock
+
 	filePath := filepath.Join(db.dir, collection+"_"+key+".json")
 
 	data, err := json.Marshal(value)
@@ -33,6 +38,9 @@ func (db *DB) Write(collection, key string, value interface{}) error {
 
 // Read all records
 func (db *DB) Readall(collection string) ([]string, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
 	files, err := filepath.Glob(filepath.Join(db.dir, collection+"_*"))
 	if err != nil {
 		return nil, err
@@ -54,6 +62,9 @@ func (db *DB) Readall(collection string) ([]string, error) {
 
 // Read single record
 func (db *DB) Read(collection, key string) (string, error) {
+	db.mu.RLock()         // read lock
+	defer db.mu.RUnlock()
+
 	filePath := filepath.Join(db.dir, collection+"_"+key+".json")
 
 	data, err := os.ReadFile(filePath)
@@ -71,11 +82,9 @@ func (db *DB) Update(collection, key string, value interface{}) error {
 
 // Delete record
 func (db *DB) Delete(collection, key string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	filePath := filepath.Join(db.dir, collection+"_"+key+".json")
-
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return fmt.Errorf("record not found")
-	}
-
 	return os.Remove(filePath)
 }
