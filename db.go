@@ -33,7 +33,7 @@ func New(dir string, options interface{}) (*DB, error) {
 // Write
 func (db *DB) Write(collection, key string, value interface{}) error {
 	if key == "" {
-		return fmt.Errorf("key cannot be empty")
+		return fmt.Errorf("key cannot be  empty")
 	}
 
 	key = strings.ReplaceAll(key, "/", "_")
